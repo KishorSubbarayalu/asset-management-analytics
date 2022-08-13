@@ -2,7 +2,7 @@
 
 ## Data Import and Preparation
 
-	- Datasource : https://www.kaggle.com/datasets/nithinfelix/assets-under-management-monthly-extract
+	- View data [Datasource](https://www.kaggle.com/datasets/nithinfelix/assets-under-management-monthly-extract)
 
 #### Steps Involved
 	- Create database and tables in MySQL
@@ -17,3 +17,4 @@
 	- Create a connection with MySQL
 	- Load all created views
 	- Create dashboards using Power BI
+	- View the dashbord [here](https://app.powerbi.com/links/4WjgIeugMz?ctid=060b02ae-5775-4360-abba-e2e29cca6627&pbi_source=linkShare)
