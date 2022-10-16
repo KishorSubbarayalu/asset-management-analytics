@@ -11,6 +11,14 @@ SELECT * FROM sample_asset_management.exch_rate;
 -- View Monthly Holdings Data
 SELECT * FROM sample_asset_management.holdings;
 
+-- View Segment Data
+SELECT * FROM sample_asset_management.segments;
+
+-- View Security Region Data
+SELECT * FROM sample_asset_management.security_region;
+
+
+
 -- 1. Get the holdings made by all customers in EUR
 WITH client_holding AS (
 SELECT 
@@ -19,18 +27,25 @@ FROM sample_asset_management.holdings H
 JOIN sample_asset_management.exch_rate E
 	ON H.CCY_CODE = E.FROM_CCY)
 select 
-	C.ID, CU.NAME, ROUND(SUM(AMOUNT_EUR),2) AS TOTAL_HOLDINGS 
+	C.ID, CU.NAME, S.SEG_ID, ROUND(SUM(AMOUNT_EUR),2) AS TOTAL_HOLDINGS 
 FROM client_holding C
 JOIN sample_asset_management.customers CU
 	ON C.ID = CU.ID
-GROUP BY 1
-ORDER BY 3 DESC;
+JOIN sample_asset_management.segments S
+	ON CU.SEG_ID = S.SEG_ID
+GROUP BY 1,3
+ORDER BY 4 DESC;
 
 -- 2.Get diversified investment count made by each client
 
-SELECT ID, COUNT( DISTINCT ISIN) AS TOTAL_INV_PRODUCTS FROM sample_asset_management.holdings
-GROUP BY 1
-ORDER BY 2 DESC;
+SELECT CU.ID,CU.NAME, S.SEG_ID, COUNT( DISTINCT ISIN) AS TOTAL_INV_PRODUCTS 
+FROM sample_asset_management.holdings H
+JOIN sample_asset_management.customers CU
+	ON H.ID = CU.ID
+JOIN sample_asset_management.segments S
+	ON CU.SEG_ID = S.SEG_ID
+GROUP BY 1,3
+ORDER BY 4 DESC;
 
 -- 3. Get the total clients handled by each advisor, and the revenue made by them
 
@@ -78,20 +93,22 @@ JOIN sample_asset_management.exch_rate E
 	ON H.CCY_CODE = E.FROM_CCY),
 reg_asstype_rev AS (
 SELECT 
-	SECURITY_REGION,
+	REGION_NAME,
     ASSET_TYPE,
     ROUND(SUM(AMOUNT_EUR),2) AS REVENUE_GENERATED
 FROM sample_asset_management.investment I
+JOIN security_region SR
+	ON I.SEC_REG_ID = SR.SEC_REG_ID
 JOIN client_holding C
 	ON I.ISIN = C.ISIN
 GROUP BY 1,2
 ORDER BY 1)
 SELECT 
 	*,
-	RANK() OVER(PARTITION BY SECURITY_REGION ORDER BY REVENUE_GENERATED DESC) AS 'RANK'
+	RANK() OVER(PARTITION BY REGION_NAME ORDER BY REVENUE_GENERATED DESC) AS 'RANK'
 FROM reg_asstype_rev;
 
--- 6. Get each client's holding distribution on each asset type
+-- 6. Get each client's holding distribution on each asset type and sub asset type
 
 WITH client_holding AS (
 SELECT 
@@ -102,7 +119,7 @@ JOIN sample_asset_management.exch_rate E
 total_rev AS (
 select 
 	C.ID,
-	C.NAME
+    CU.NAME AS 'NAME',
     ROUND(SUM(AMOUNT_EUR),2) AS TOTAL_HOLDINGS
 FROM client_holding C
 JOIN sample_asset_management.customers CU
@@ -111,16 +128,17 @@ GROUP BY 1)
 SELECT 
 	C.ID,
 	I.ASSET_TYPE,
+    I.SUB_ASSET_TYPE,
+    T.NAME,
     ROUND(SUM(AMOUNT_EUR),2) AS ASSET_LEVEL_HOLDINGS,
     T.TOTAL_HOLDINGS AS TOTAL_HOLDINGS,
-    CONCAT(ROUND((ROUND(SUM(AMOUNT_EUR),2)/T.TOTAL_HOLDINGS) * 100,2),'%') AS ASSET_DISTRIBUTION,
-	T.NAME
+    CONCAT(ROUND((ROUND(SUM(AMOUNT_EUR),2)/T.TOTAL_HOLDINGS) * 100,2),'%') AS ASSET_DISTRIBUTION
 FROM client_holding C
 JOIN total_rev T
 	ON C.ID = T.ID
 JOIN sample_asset_management.investment I
 	ON C.ISIN = I.ISIN
-GROUP BY 1,2
+GROUP BY 1,2,3
 ORDER BY 1;
 
 -- 7. KPI's
